@@ -12,7 +12,9 @@ from multiprocessing.dummy import Pool as ThreadPool
 # proxies = {'https': 'https://35.166.171.212:3128'}
 # proxies = {'https': 'https://192.241.145.201:8080'}
 # proxies = {'https': 'https://35.185.23.159:80'}
-proxies = {'https': 'https://207.99.118.74:8080'}
+proxies = {'https': 'https://35.185.245.248:80'}
+proxies = {'https': 'https://35.186.187.230:3128'}
+# proxies = {'https': 'https://144.217.104.145:8080'}
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
     "Accept": "application/json, text/plain, */*",
@@ -275,7 +277,7 @@ def parse(line):
                 if child['class'][0] == "category-row":
                     ch = child.find_all("td", {"class": "fare-fare2"})
                     if len(ch) > 1:
-                        ch = ch[0]
+                        ch = ch[1]
                     else:
                         ch = ch[0]
                     if room_type == "Suites":
@@ -314,7 +316,7 @@ def write_file_to_excell(data_array):
     print(userhome)
     now = datetime.datetime.now()
     path_to_file = userhome + '/Dropbox/XLSX/For Assia to test/' + str(now.year) + '-' + str(now.month) + '-' + str(
-        now.day) + '/' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '- Non cruise only price Oceania Cruises.xlsx'
+        now.day) + '/' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' Cruise only price Oceania Cruises.xlsx'
     if not os.path.exists(userhome + '/Dropbox/XLSX/For Assia to test/' + str(now.year) + '-' + str(
             now.month) + '-' + str(now.day)):
         os.makedirs(
