@@ -6,12 +6,7 @@ import xlsxwriter
 from bs4 import BeautifulSoup
 from multiprocessing.dummy import Pool as ThreadPool
 
-# proxies = {'https': 'https://165.138.65.233:3128'}
-# proxies = {'https': 'https://54.153.98.123:8083'}
-# proxies = {'https': 'https://207.160.104.5:3128'}
-# proxies = {'https': 'https://35.166.171.212:3128'}
-# proxies = {'https': 'https://192.241.145.201:8080'}
-# proxies = {'https': 'https://35.185.23.159:80'}
+
 from requests.exceptions import ProxyError
 
 url = 'https://www.us-proxy.org'
@@ -26,14 +21,13 @@ for r in rows:
     tds = r.find_all('td')
     if len(tds) != 0:
         if tds[6].text == 'yes' and tds[4].text == 'anonymous':
-            print(tds[4].text)
             item = {
                 str(counter): "https://" + str(tds[0].text) + ":" + str(tds[1].text)
             }
             proxies.update(item)
-            print(item)
             counter += 1
-print(proxies)
+counter = 1
+proxies = {'https': proxies[str(counter)]}
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
     "Accept": "application/json, text/plain, */*",
@@ -48,7 +42,7 @@ pool = ThreadPool(10)
 url = 'https://www.oceaniacruises.com/api/cruisefinder/getcruises'
 page = ''
 notSucc = True
-counter = 1
+
 while notSucc:
     try:
         proxies = {'https': proxies[str(counter)]}
@@ -181,9 +175,6 @@ def get_destination(param):
         return ['180-Day World Cruises', 'WC']
     else:
         return [param, "OT", 'OT']
-
-
-print(len(cruise_results))
 
 
 def split_carib(ports):
