@@ -12,9 +12,28 @@ from multiprocessing.dummy import Pool as ThreadPool
 # proxies = {'https': 'https://35.166.171.212:3128'}
 # proxies = {'https': 'https://192.241.145.201:8080'}
 # proxies = {'https': 'https://35.185.23.159:80'}
-proxies = {'https': 'https://35.185.245.248:80'}
-proxies = {'https': 'https://35.186.187.230:3128'}
-# proxies = {'https': 'https://144.217.104.145:8080'}
+from requests.exceptions import ProxyError
+
+url = 'https://www.us-proxy.org'
+proxies = {}
+counter = 1
+soup = BeautifulSoup(requests.get(url).text, "lxml")
+table = soup.find('table', {'id': 'proxylisttable'})
+rows = table.find_all('tr')
+rows = rows[1:]
+
+for r in rows:
+    tds = r.find_all('td')
+    if len(tds) != 0:
+        if tds[6].text == 'yes' and tds[4].text == 'anonymous':
+            print(tds[4].text)
+            item = {
+                str(counter): "https://" + str(tds[0].text) + ":" + str(tds[1].text)
+            }
+            proxies.update(item)
+            print(item)
+            counter += 1
+print(proxies)
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
     "Accept": "application/json, text/plain, */*",
@@ -27,10 +46,22 @@ session = requests.session()
 session.headers.update(headers)
 pool = ThreadPool(10)
 url = 'https://www.oceaniacruises.com/api/cruisefinder/getcruises'
-page = requests.post(url=url, proxies=proxies)
+page = ''
+notSucc = True
+counter = 1
+while notSucc:
+    try:
+        proxies = {'https': proxies[str(counter)]}
+        page = requests.post(url=url, proxies=proxies)
+        notSucc = False
+    except ProxyError:
+        counter += 1
+        notSucc = True
+
 cruise_results = page.json()
 counter = 1
 to_write = []
+ots = []
 
 
 def calculate_days(sail_date_param, number_of_nights_param):
@@ -231,7 +262,7 @@ def parse(line):
     destination_name = destination[0]
     destination_code = destination[1]
     if destination_name == 'Caribbean':
-            destination = split_carib(port_list)
+        destination = split_carib(port_list)
     if len(destination) > 2:
         subcode = destination[2]
     else:
@@ -277,7 +308,7 @@ def parse(line):
                 if child['class'][0] == "category-row":
                     ch = child.find_all("td", {"class": "fare-fare2"})
                     if len(ch) > 1:
-                        ch = ch[1]
+                        ch = ch[0]
                     else:
                         ch = ch[0]
                     if room_type == "Suites":
@@ -296,12 +327,13 @@ def parse(line):
         temp = [destination_code, destination_name, subcode, vessel_id, vessel_name, cruise_id, cruise_line_name,
                 itinerary_id, brochure_name, number_of_nights, sail_date, return_date, interior_bucket_price,
                 oceanview_bucket_price, balcony_bucket_price, suite_bucket_price]
-        to_write.append(temp)
-        print(temp)
     except IndexError:
         temp = [destination_code, destination_name, subcode, vessel_id, vessel_name, cruise_id, cruise_line_name,
                 itinerary_id, brochure_name, number_of_nights, sail_date, return_date, "N/A",
                 "N/A", "N/A", "N/A"]
+    if destination_name == 'OT' or destination_code == 'OT':
+        ots.append(temp)
+    else:
         to_write.append(temp)
         print(temp)
 
@@ -309,6 +341,29 @@ def parse(line):
 pool.map(parse, cruise_results['results'])
 pool.close()
 pool.join()
+group = 1
+for ot in ots:
+    for te in to_write:
+        if ot[4] == te[4] and ot[10] == te[10]:
+            for te2 in to_write:
+                if ot[4] == te2[4] and ot[11] == te2[11]:
+                    if ot[7] == '' and te[7] == '' and te2[7] == '':
+                        ot[7] = 'Group' + str(group)
+                        te[7] = 'Group' + str(group)
+                        te2[7] = 'Group' + str(group)
+                        group += 1
+                    else:
+                        if ot[7] != '':
+                            te[7] = ot[7]
+                            te2[7] = ot[7]
+                        elif te[7] != '':
+                            ot[7] = te[7]
+                            te2[7] = te[7]
+                        elif te2[7] != '':
+                            te[7] = te2[7]
+                            ot[7] = te2[7]
+for ot in ots:
+    to_write.append(ot)
 
 
 def write_file_to_excell(data_array):
@@ -316,7 +371,8 @@ def write_file_to_excell(data_array):
     print(userhome)
     now = datetime.datetime.now()
     path_to_file = userhome + '/Dropbox/XLSX/For Assia to test/' + str(now.year) + '-' + str(now.month) + '-' + str(
-        now.day) + '/' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' Cruise only price Oceania Cruises.xlsx'
+        now.day) + '/' + str(now.year) + '-' + str(now.month) + '-' + str(
+        now.day) + ' Non - Cruise only price Oceania Cruises.xlsx'
     if not os.path.exists(userhome + '/Dropbox/XLSX/For Assia to test/' + str(now.year) + '-' + str(
             now.month) + '-' + str(now.day)):
         os.makedirs(
