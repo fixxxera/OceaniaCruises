@@ -1,33 +1,42 @@
 import datetime
 import os
+from multiprocessing.dummy import Pool as ThreadPool
 
 import requests
 import xlsxwriter
 from bs4 import BeautifulSoup
-from multiprocessing.dummy import Pool as ThreadPool
 
 
-from requests.exceptions import ProxyError
+def get_proxy():
+    print("Looking for a working proxy server")
+    soup = BeautifulSoup(requests.get('https://www.us-proxy.org').text, 'lxml')
+    table = soup.find('table', {'id': 'proxylisttable'})
+    tbody = table.find('tbody')
+    proxies = []
+    for tr in tbody:
+        columns = tr.find_all('td')
+        if columns[2].text in 'US' and columns[4].text in 'anonymous' and columns[6].text in 'yes':
+            proxies.append("https://" + columns[0].text + ":" + columns[1].text)
+    for p in proxies:
+        try:
+            proxy_line = {'https': p}
+            resp = requests.post('https://www.oceaniacruises.com/api/cruisefinder/getcruises', proxies=proxy_line,
+                                 timeout=10)
+            if resp.ok:
+                print("Found one!")
+                return proxy_line
+            else:
+                print(p, "Not working")
+        except requests.exceptions.ProxyError:
+            print(p, "Not working")
+        except requests.exceptions.ConnectTimeout:
+            print(p, "Not working")
+        except requests.exceptions.ReadTimeout:
+            print(p, "Not working")
 
-url = 'https://www.us-proxy.org'
-proxies = {}
-counter = 1
-soup = BeautifulSoup(requests.get(url).text, "lxml")
-table = soup.find('table', {'id': 'proxylisttable'})
-rows = table.find_all('tr')
-rows = rows[1:]
 
-for r in rows:
-    tds = r.find_all('td')
-    if len(tds) != 0:
-        if tds[6].text == 'yes' and tds[4].text == 'anonymous':
-            item = {
-                str(counter): "https://" + str(tds[0].text) + ":" + str(tds[1].text)
-            }
-            proxies.update(item)
-            counter += 1
-counter = 1
-proxies = {'https': proxies[str(counter)]}
+url = 'https://www.oceaniacruises.com/api/cruisefinder/getcruises'
+proxy = get_proxy()
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
     "Accept": "application/json, text/plain, */*",
@@ -39,19 +48,7 @@ body = {"page": 1, "ResultsPerPage": 25, "resultsPerPage": 16, "specials": [{"ke
 session = requests.session()
 session.headers.update(headers)
 pool = ThreadPool(10)
-url = 'https://www.oceaniacruises.com/api/cruisefinder/getcruises'
-page = ''
-notSucc = True
-
-while notSucc:
-    try:
-        proxies = {'https': proxies[str(counter)]}
-        page = requests.post(url=url, proxies=proxies)
-        notSucc = False
-    except ProxyError:
-        counter += 1
-        notSucc = True
-
+page = requests.post(url=url, proxies=proxy)
 cruise_results = page.json()
 counter = 1
 to_write = []
@@ -271,7 +268,7 @@ def parse(line):
                 destination_name = "Bermuda"
                 subcode = 'BM'
     details_url = "https://www.oceaniacruises.com" + line['cruiseDetailsUrl']
-    details_page = requests.get(details_url, headers=headers, proxies=proxies)
+    details_page = requests.get(details_url, headers=headers, proxies=proxy)
     soup = BeautifulSoup(details_page.text, "lxml")
     intl = soup.find_all("span")
     for row in intl:
